@@ -17,25 +17,27 @@ cv::Mat drawUser( nite::UserTrackerFrameRef& userFrame )
 
     openni::VideoFrameRef depthFrame = userFrame.getDepthFrame();
     if ( depthFrame.isValid() ) {
-		// Depthの情報をdepthImageに
+        // Depthの情報をdepthImageに
         openni::VideoMode videoMode = depthFrame.getVideoMode();
         depthImage = cv::Mat( videoMode.getResolutionY(),
-                                videoMode.getResolutionX(),
-								CV_16SC1, (short*) depthFrame.getData() );
-		depthImage.convertTo(depthImage, CV_8UC1, 255.0/10000);
-		cv::cvtColor(depthImage, depthImage, CV_GRAY2BGR);
+                              videoMode.getResolutionX(),
+                              CV_16SC1,
+							  (short*) depthFrame.getData() );
+
+        depthImage.convertTo(depthImage, CV_8UC1, 255.0/10000);
+        cv::cvtColor(depthImage, depthImage, CV_GRAY2BGR);
         
-		// cv::MatでUserMapを取得する
-		cv::Mat pMapLabel = cv::Mat( videoMode.getResolutionY(),
-									videoMode.getResolutionX(),
-									CV_16SC1, (short*) userFrame.getUserMap().getPixels());
-		pMapLabel.convertTo(pMapLabel,CV_8UC1);
-		// 見つけた人に色をつけるよ
-		for(int i = 0; i < 6; i++){
-			cv::Mat mask;
-			cv::compare(pMapLabel, i+1, mask, CV_CMP_EQ);
-			cv::add(depthImage, colors[i], depthImage, mask);
-		}
+        // cv::MatでUserMapを取得する
+        cv::Mat pMapLabel = cv::Mat( videoMode.getResolutionY(),
+                                    videoMode.getResolutionX(),
+                                    CV_16SC1, (short*) userFrame.getUserMap().getPixels());
+        pMapLabel.convertTo(pMapLabel,CV_8UC1);
+        // 見つけた人に色をつけるよ
+        for(int i = 0; i < 6; i++){
+            cv::Mat mask;
+            cv::compare(pMapLabel, i+1, mask, CV_CMP_EQ);
+            cv::add(depthImage, colors[i], depthImage, mask);
+        }
     }
 
     return depthImage;
@@ -44,15 +46,15 @@ cv::Mat drawUser( nite::UserTrackerFrameRef& userFrame )
 
 void main(int argc, char* argv[])
 {
-	try{
-		auto status = nite::NiTE::initialize();
-		nite::UserTracker userTracker;
-		status = userTracker.create();
+    try{
+        auto status = nite::NiTE::initialize();
+        nite::UserTracker userTracker;
+        status = userTracker.create();
         if ( status != nite::STATUS_OK ) {
             throw std::runtime_error( "userTracker.create" );
         }
-		
-		cv::Mat depthImage;
+        
+        cv::Mat depthImage;
 
         while ( 1 ) {
             nite::UserTrackerFrameRef userFrame;
@@ -67,9 +69,9 @@ void main(int argc, char* argv[])
                 break;
             }
         }
-	}
-	catch(std::exception&){
-		std::cout << openni::OpenNI::getExtendedError() << std::endl;
-	}
+    }
+    catch(std::exception&){
+        std::cout << openni::OpenNI::getExtendedError() << std::endl;
+    }
 }
 
