@@ -11,9 +11,13 @@ cv::Scalar colors[] = {
     cv::Scalar(    0, 0xFF, 0xFF ),
 };
 
-cv::Mat drawUser( nite::UserTrackerFrameRef& userFrame )
+/*
+  depthの生データをグレイスケールの画像にする。
+  CV_8UC3で返すよ
+*/
+cv::Mat depthToImage( nite::UserTrackerFrameRef& userFrame )
 {
-    cv::Mat depthImage;
+	cv::Mat depthImage;
 
     openni::VideoFrameRef depthFrame = userFrame.getDepthFrame();
     if ( depthFrame.isValid() ) {
@@ -23,24 +27,31 @@ cv::Mat drawUser( nite::UserTrackerFrameRef& userFrame )
                               videoMode.getResolutionX(),
                               CV_16SC1,
 							  (short*) depthFrame.getData() );
-
+		// depthImageを表示向きのCV_8UC3に変更。
         depthImage.convertTo(depthImage, CV_8UC1, 255.0/10000);
         cv::cvtColor(depthImage, depthImage, CV_GRAY2BGR);
-        
-        // cv::MatでUserMapを取得する
-        cv::Mat pMapLabel = cv::Mat( videoMode.getResolutionY(),
-                                    videoMode.getResolutionX(),
-                                    CV_16SC1, (short*) userFrame.getUserMap().getPixels());
-        pMapLabel.convertTo(pMapLabel,CV_8UC1);
-        // 見つけた人に色をつけるよ
-        for(int i = 0; i < 6; i++){
-            cv::Mat mask;
-            cv::compare(pMapLabel, i+1, mask, CV_CMP_EQ);
-            cv::add(depthImage, colors[i], depthImage, mask);
-        }
-    }
+	}
+	return depthImage;
+}
 
-    return depthImage;
+void drawUser( nite::UserTrackerFrameRef& userFrame, cv::Mat& depthImage )
+{
+	openni::VideoFrameRef depthFrame = userFrame.getDepthFrame();
+	if ( depthFrame.isValid() ) {
+		openni::VideoMode videoMode = depthFrame.getVideoMode();
+		// cv::MatでUserMapを取得する
+		cv::Mat pMapLabel = cv::Mat( videoMode.getResolutionY(),
+										videoMode.getResolutionX(),
+										CV_16SC1, 
+										(short*) userFrame.getUserMap().getPixels());
+		pMapLabel.convertTo(pMapLabel,CV_8UC1);
+		// 見つけた人に色をつけるよ
+		for(int i = 0; i < 6; i++){
+			cv::Mat mask;
+			cv::compare(pMapLabel, i+1, mask, CV_CMP_EQ);
+			cv::add(depthImage, colors[i], depthImage, mask);
+		}
+	}
 }
 
 
@@ -60,7 +71,8 @@ void main(int argc, char* argv[])
             nite::UserTrackerFrameRef userFrame;
             userTracker.readFrame( &userFrame );
 
-            depthImage = drawUser( userFrame );
+			depthImage = depthToImage( userFrame );
+            drawUser( userFrame, depthImage );
 
             cv::imshow( "User", depthImage );
 
