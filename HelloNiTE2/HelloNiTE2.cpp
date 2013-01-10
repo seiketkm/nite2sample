@@ -62,11 +62,14 @@ void drawSkeleton( nite::UserTrackerFrameRef& userFrame,
         const nite::UserData& user = users[i];
         if ( user.isNew() ) {
             userTracker.startSkeletonTracking( user.getId() );
+            userTracker.startPoseDetection( user.getId(), nite::POSE_PSI);
+            userTracker.startPoseDetection( user.getId(), nite::POSE_CROSSED_HANDS);
         }
         else if ( !user.isLost() ) {
+            // skeleton‚Ì•\Ž¦
             const auto skeleton = user.getSkeleton();
             if ( skeleton.getState() == nite::SkeletonState::SKELETON_TRACKED ) {
-                for ( int j = 0; j <= nite::JointType.JOINT_RIGHT_FOOT; j++ ) {
+                for ( int j = 0; j < 15; j++ ) {
                     const auto joint = skeleton.getJoint((nite::JointType)j);
                     if ( joint.getPositionConfidence() >= 0.7f ) {
                         const auto position = joint.getPosition();
@@ -79,9 +82,26 @@ void drawSkeleton( nite::UserTrackerFrameRef& userFrame,
                     }
                 }
             }
+            // pose‚Ì•\Ž¦
+            const auto pose_psi = user.getPose(nite::POSE_PSI);
+            if( pose_psi.isHeld() || pose_psi.isEntered() )
+            {
+                auto center = user.getCenterOfMass();
+                float x = 0, y = 0;
+                userTracker.convertJointCoordinatesToDepth(center.x, center.y, center.z, &x, &y);
+                cv::putText(image, "PSI", cv::Point2f(x,y), cv::FONT_HERSHEY_SIMPLEX, 2, cv::Scalar(0xFF,0xFF,0xFF));
+            }
+            const auto pose_cross = user.getPose(nite::POSE_CROSSED_HANDS);
+            if( pose_cross.isHeld() || pose_cross.isEntered() ){
+                auto center = user.getCenterOfMass();
+                float x = 0, y = 0;
+                userTracker.convertJointCoordinatesToDepth(center.x, center.y, center.z, &x, &y);
+                cv::putText(image, "Cross", cv::Point2f(x,y), cv::FONT_HERSHEY_COMPLEX, 2, cv::Scalar(0xFF,0xFF,0xFF));
+            }
         }
     }
 }
+
 
 void main(int argc, char* argv[])
 {
