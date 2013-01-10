@@ -17,7 +17,7 @@ cv::Scalar colors[] = {
 */
 cv::Mat depthToImage( nite::UserTrackerFrameRef& userFrame )
 {
-	cv::Mat depthImage;
+    cv::Mat depthImage;
 
     openni::VideoFrameRef depthFrame = userFrame.getDepthFrame();
     if ( depthFrame.isValid() ) {
@@ -26,34 +26,62 @@ cv::Mat depthToImage( nite::UserTrackerFrameRef& userFrame )
         depthImage = cv::Mat( videoMode.getResolutionY(),
                               videoMode.getResolutionX(),
                               CV_16SC1,
-							  (short*) depthFrame.getData() );
-		// depthImageを表示向きのCV_8UC3に変更。
+                              (short*) depthFrame.getData() );
+        // depthImageを表示向きのCV_8UC3に変更。
         depthImage.convertTo(depthImage, CV_8UC1, 255.0/10000);
         cv::cvtColor(depthImage, depthImage, CV_GRAY2BGR);
-	}
-	return depthImage;
+    }
+    return depthImage;
 }
 
-void drawUser( nite::UserTrackerFrameRef& userFrame, cv::Mat& depthImage )
+void drawUser( nite::UserTrackerFrameRef& userFrame, cv::Mat& image )
 {
-	openni::VideoFrameRef depthFrame = userFrame.getDepthFrame();
-	if ( depthFrame.isValid() ) {
-		openni::VideoMode videoMode = depthFrame.getVideoMode();
-		// cv::MatでUserMapを取得する
-		cv::Mat pMapLabel = cv::Mat( videoMode.getResolutionY(),
-										videoMode.getResolutionX(),
-										CV_16SC1, 
-										(short*) userFrame.getUserMap().getPixels());
-		pMapLabel.convertTo(pMapLabel,CV_8UC1);
-		// 見つけた人に色をつけるよ
-		for(int i = 0; i < 6; i++){
-			cv::Mat mask;
-			cv::compare(pMapLabel, i+1, mask, CV_CMP_EQ);
-			cv::add(depthImage, colors[i], depthImage, mask);
-		}
-	}
+    openni::VideoFrameRef depthFrame = userFrame.getDepthFrame();
+    if ( depthFrame.isValid() ) {
+        openni::VideoMode videoMode = depthFrame.getVideoMode();
+        // cv::MatでUserMapを取得する
+        cv::Mat pMapLabel = cv::Mat( videoMode.getResolutionY(),
+                                     videoMode.getResolutionX(),
+                                     CV_16SC1, 
+                                     (short*) userFrame.getUserMap().getPixels());
+        pMapLabel.convertTo(pMapLabel,CV_8UC1);
+        // 見つけた人に色をつけるよ
+        for(int i = 0; i < 6; i++){
+            cv::Mat mask;
+            cv::compare(pMapLabel, i+1, mask, CV_CMP_EQ);
+            cv::add(image, colors[i], image, mask);
+        }
+    }
 }
+void drawSkeleton( nite::UserTrackerFrameRef& userFrame,
+                   nite::UserTracker& userTracker,
+                   cv::Mat& image)
+{
+    const nite::Array<nite::UserData>& users = userFrame.getUsers();
+    for ( int i = 0; i < users.getSize(); ++i ) {
+        const nite::UserData& user = users[i];
+        if ( user.isNew() ) {
+            userTracker.startSkeletonTracking( user.getId() );
+        }
+        else if ( !user.isLost() ) {
+            const auto skeleton = user.getSkeleton();
+            if ( skeleton.getState() == nite::SkeletonState::SKELETON_TRACKED ) {
+                for ( int j = 0; j <= nite::JointType.JOINT_RIGHT_FOOT; j++ ) {
+                    const auto joint = skeleton.getJoint((nite::JointType)j);
+                    if ( joint.getPositionConfidence() >= 0.7f ) {
+                        const auto position = joint.getPosition();
+                        float x = 0, y = 0;
+                        userTracker.convertJointCoordinatesToDepth(
+                            position.x, position.y, position.z, &x, &y );
 
+                        cv::circle( image, cvPoint( (int)x, (int)y ),
+                            3, cv::Scalar( 0, 0, 255 ), 5 );
+                    }
+                }
+            }
+        }
+    }
+}
 
 void main(int argc, char* argv[])
 {
@@ -71,9 +99,9 @@ void main(int argc, char* argv[])
             nite::UserTrackerFrameRef userFrame;
             userTracker.readFrame( &userFrame );
 
-			depthImage = depthToImage( userFrame );
+            depthImage = depthToImage( userFrame );
             drawUser( userFrame, depthImage );
-
+            drawSkeleton( userFrame, userTracker, depthImage);
             cv::imshow( "User", depthImage );
 
             int key = cv::waitKey( 10 );
